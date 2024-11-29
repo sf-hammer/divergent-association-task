@@ -1,7 +1,7 @@
 import dat
 
 # GloVe model from https://nlp.stanford.edu/projects/glove/
-model = dat.Model("glove.840B.300d.txt", "words.txt")
+model = dat.Model("model/glove.840B.300d.txt", "model/words.txt")
 
 # Compound words are translated into words found in the model
 print(model.validate("cul de sac")) # cul-de-sac

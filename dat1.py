@@ -4,12 +4,12 @@ a quick and simple measure of creativity
 
 import re
 import itertools
-import numpy
+import numpy as np
 import scipy.spatial.distance
 
 
 class Model:
-    """Create model to compute DAT"""
+    """Create model to compute the DAT"""
 
     def __init__(self, model="vectors.txt", dictionary="vocab.txt", pattern="^[a-z][a-z-]*[a-z]$"):
         """Join model and words matching pattern in dictionary"""
@@ -28,10 +28,9 @@ class Model:
                 tokens = line.split(" ")
                 word = tokens[0]
                 if word in words:
-                    vector = numpy.asarray(tokens[1:], "float32")
+                    vector = np.asarray(tokens[1:], "float32")
                     vectors[word] = vector
         self.vectors = vectors
-
 
     def validate(self, word):
         """Clean up word and find best candidate to use"""
@@ -60,7 +59,7 @@ class Model:
 
 
     def distance(self, word1, word2):
-        """Compute cosine distance (0 to 2) between two words"""
+        """Compute cosine distance between two words"""
 
         return scipy.spatial.distance.cosine(self.vectors.get(word1), self.vectors.get(word2))
 

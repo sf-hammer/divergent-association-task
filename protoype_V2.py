@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Dec  4 11:54:49 2024
+
+@author: sh23q253
+"""
 import tkinter as tk
 from tkinter import messagebox
 import dat1  # Assuming your DAT implementation is saved as dat1.py
@@ -7,18 +13,30 @@ model = dat1.Model("model/vectors.txt", "model/vocab.txt")
 
 # Define a function to handle the calculation
 def calculate_dat():
-    # Collect words from input fields
-    words = [entry.get().strip().lower() for entry in entries]
-    
-    # Calculate the DAT score
-    try:
-        score = model.dat(words)
-        if score is not None:
-            result_label.config(text=f"DAT Score: {score:.2f}")
+    # Collect words from input fields and reset their background color
+    words = []
+    for ent in entries:
+        ent.config(bg="white")  # Reset background to default
+        word = ent.get().strip().lower()
+        words.append(word)
+
+    # Check word validity and highlight invalid words
+    valid_words = []
+    for i, word in enumerate(words):
+        if model.validate(word) is not None:
+            valid_words.append(word)
         else:
-            messagebox.showerror("Error", "Not enough valid words (minimum 7).")
-    except Exception as e:
-        messagebox.showerror("Error", str(e))
+            entries[i].config(bg="red")  # Highlight invalid words in red
+
+    # Calculate the DAT score if enough valid words are provided
+    if len(valid_words) >= 7:
+        try:
+            score = model.dat(valid_words)
+            result_label.config(text=f"DAT Score: {score:.2f}")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+    else:
+        messagebox.showerror("Error", "Not enough valid words (minimum 7).")
 
 # Create the main application window
 root = tk.Tk()
@@ -26,7 +44,7 @@ root.title("DAT")
 
 # Instructions
 instruction_label = tk.Label(
-    root, 
+    root,
     text="Gib 10 Wörter ein, die möglichst verschieden sind. Drücke 'Fertig', um den DAT Score zu berechnen.",
     wraplength=400,
     justify="left"

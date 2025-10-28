@@ -11,7 +11,7 @@ def calculate_all_combinations_dat(model, words):
     word_list = [str(word).strip() for word in words if pd.notna(word) and str(word).strip()]
     
     if len(word_list) == 0:
-        return {}, 0, [], []
+        return {}, 0, [], [], []
 
     # Helper function to convert umlauts
     def convert_umlauts(word):
@@ -21,6 +21,7 @@ def calculate_all_combinations_dat(model, words):
     # Check words and collect valid ones (keep order), also track invalid ones
     valid_words = []
     invalid_words = []
+    umlaut_conversions = []
     for word in word_list:
         validated = model.validate(word)
         if validated is not None:
@@ -32,6 +33,7 @@ def calculate_all_combinations_dat(model, words):
                 validated_converted = model.validate(converted_word)
                 if validated_converted is not None:
                     valid_words.append(validated_converted)
+                    umlaut_conversions.append((word, converted_word))
                     print(f"Converted '{word}' to '{converted_word}' - now valid")
                 else:
                     invalid_words.append(word)
@@ -40,7 +42,20 @@ def calculate_all_combinations_dat(model, words):
 
     # Return empty dict if less than 7 valid words
     if len(valid_words) < 7:
-        return {}, len(valid_words), valid_words, invalid_words
+        return {}, len(valid_words), valid_words, invalid_words, umlaut_conversions
+    
+    # Special case: exactly 7 words - only one combination possible
+    if len(valid_words) == 7:
+        try:
+            score = model.dat(valid_words)
+            results = {
+                'DAT_first7': score,
+                'DAT_last7': score  # Same as first7 when only 7 words
+            }
+            return results, len(valid_words), valid_words, invalid_words, umlaut_conversions
+        except Exception as e:
+            print(f"Error calculating DAT score for 7 words: {e}")
+            return {}, len(valid_words), valid_words, invalid_words, umlaut_conversions
 
     # Generate all possible combinations of 7 words
     all_combinations = list(itertools.combinations(valid_words, 7))
@@ -49,21 +64,25 @@ def calculate_all_combinations_dat(model, words):
 
     # Calculate DAT score for each combination
     for i, combo in enumerate(all_combinations):
-       score = model.dat(list(combo))
+        try:
+            score = model.dat(list(combo))
+            
+            # Special naming for first and last combinations
+            if i == 0:  # First 7 words (same as original first7)
+                results['DAT_first7'] = score
+            elif i == len(all_combinations) - 1:  # Last combination
+                results['DAT_last7'] = score
+            else:
+                # Name other combinations as combi_1, combi_2, etc.
+                combo_num = i  # Will be 1, 2, 3... (skipping 0 for first7)
+                if combo_num > len(all_combinations) - 2:  # Adjust for last7
+                    combo_num -= 1
+                results[f'combi_{combo_num}'] = score
+        except Exception as e:
+            print(f"Error calculating DAT score for combination {i}: {e}")
+            continue
 
-    # Special naming for first and last combinations
-    if i == 0:  # First 7 words (same as original first7)
-        results['DAT_first7'] = score
-    elif i == len(all_combinations) - 1:  # Last combination
-        results['DAT_last7'] = score
-    else:
-        # Name other combinations as combi_1, combi_2, etc.
-        combo_num = i  # Will be 1, 2, 3... (skipping 0 for first7)
-        if combo_num > len(all_combinations) - 2:  # Adjust for last7
-            combo_num -= 1
-        results[f'combi_{combo_num}'] = score
-
-    return results, len(valid_words), valid_words, invalid_words
+    return results, len(valid_words), valid_words, invalid_words, umlaut_conversions
 
 
 def calculate_stability_metrics(dat_scores):
@@ -124,6 +143,7 @@ def process_dat_responses():
     stability_results = []
     all_combinations_results = []
     invalid_words_results = []
+    total_umlaut_conversions = []
 
     # Process each participant
     for index, row in df.iterrows():
@@ -134,13 +154,26 @@ def process_dat_responses():
         words = [row[col] for col in word_columns if col in df.columns]
 
         # Calculate all possible DAT combinations
-        all_dat_scores, valid_count, valid_words, invalid_words = calculate_all_combinations_dat(model, words)
+        all_dat_scores, valid_count, valid_words_list, invalid_words, umlaut_conversions = calculate_all_combinations_dat(model, words)
+        
+        # Track umlaut conversions
+        total_umlaut_conversions.extend([(participant_id, original, converted) for original, converted in umlaut_conversions])
+        
+        # Debug output
+        print(f"Participant {participant_id}: Found {valid_count} valid words out of {len([w for w in words if pd.notna(w) and str(w).strip()])} total words")
+        if len(invalid_words) > 0:
+            print(f"  Invalid words: {invalid_words}")
+        if len(valid_words_list) > 0:
+            print(f"  Valid words: {valid_words_list[:5]}...")  # Show first 5
+        if len(umlaut_conversions) > 0:
+            print(f"  Umlaut conversions: {umlaut_conversions}")
 
         # Track invalid words for this participant
         for word in invalid_words:
             invalid_words_results.append({
                 'participant_id': participant_id,
-                'invalid_word': word
+                'invalid_word': word,
+                'reason': 'Not in vocabulary'
             })
 
         # Also track empty/missing words
@@ -239,6 +272,17 @@ def process_dat_responses():
     if len(invalid_words_df) > 0:
         print("\nInvalid Words Summary:")
         print(f"Total invalid word entries: {len(invalid_words_df)}")
+    
+    # Umlaut conversion summary
+    if len(total_umlaut_conversions) > 0:
+        print(f"\nUmlaut Conversion Summary:")
+        print(f"Total words successfully converted from umlauts: {len(total_umlaut_conversions)}")
+        print(f"Participants benefiting from umlaut conversion: {len(set([conv[0] for conv in total_umlaut_conversions]))}")
+        print("Conversions made:")
+        for participant_id, original, converted in total_umlaut_conversions:
+            print(f"  {participant_id}: '{original}' → '{converted}'")
+    else:
+        print("\nNo umlaut conversions were needed.")
 
     if len(basic_df[basic_df['DAT_first7'].notna()]) > 0:
         print("\nDAT First 7 Statistics:")

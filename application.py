@@ -9,10 +9,12 @@ from tkinter import messagebox
 import dat1  # Assuming your DAT implementation is saved as dat1.py
 
 # Load the model
-model = dat1.Model("model/vectors.txt", "model/vocab.txt")
+model = dat1.Model("model/vectors_glove_de_wiki.txt", "model/vocab_glove_de_wiki.txt")
 
 # Define a function to handle the calculation
 def calculate_dat():
+    """Calculate DAT score based on user input words"""
+
     # Collect words from input fields and reset their background color
     words = []
     for ent in entries:
